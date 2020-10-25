@@ -33,5 +33,21 @@ def task_2() -> str:
     return str(round(e, dec))
 
 
+def task_3(number: int) -> tuple:
+    u"""Fibonacci Sequence - Enter a number and have the program generate the Fibonacci sequence
+    to that number or to the Nth number."""
+    try:
+        number = int(number)
+    except ValueError:
+        return tuple()
+    seq = [1, 1]
+    for i in range(2, number):
+        seq.append(seq[i - 1] + seq[i - 2])
+    return tuple(seq)
+
+
 if __name__ == '__main__':
-    print(task_2())
+    import unittest
+    import test_main
+    suite = unittest.TestLoader().loadTestsFromModule(test_main)
+    unittest.TextTestRunner(verbosity=2).run(suite)
