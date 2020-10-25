@@ -16,5 +16,22 @@ def task_1() -> str:
     return str(round(pi, dec))
 
 
+def task_2() -> str:
+    """Find e to the Nth Digit - Just like the previous problem, but with e instead of PI. Enter a number and have the
+    program generate e up to that many decimal places. Keep a limit to how far the program will go."""
+    from math import e
+
+    limit = 1000
+    try:
+        dec = int(input("Enter number of decimal places as positive integer"))
+    except ValueError:
+        print("This is not an integer!")
+    if dec > limit or dec < 0:
+        dec = 2
+        print("Wrong value. Positive integers lesser than: {limit}, using default value: {d}".format(limit=limit, d=dec))
+
+    return str(round(e, dec))
+
+
 if __name__ == '__main__':
-    print(task_1())
+    print(task_2())
