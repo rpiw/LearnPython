@@ -46,6 +46,24 @@ def task_3(number: int) -> tuple:
     return tuple(seq)
 
 
+def task_4(number: int) -> list:
+    u"""Prime Factorization - Have the user enter a number and find all Prime Factors (if there are any)
+        and display them."""
+    results = []
+    digit = 2
+    try:
+        number = int(number)
+    except ValueError:
+        return results
+
+    while digit * digit <= number:
+        while number % digit == 0:
+            results.append(digit)
+            number = number / digit
+        digit += 1
+    return results
+
+
 if __name__ == '__main__':
     import unittest
     import test_main
