@@ -119,6 +119,34 @@ def task_6(w, h):
     return cost * w * h
 
 
+def task_7(loan, rate):
+    u"""Mortgage Calculator - Calculate the monthly payments of a fixed term mortgage over given Nth terms at a given
+    interest rate. Also figure out how long it will take the user to pay back the loan. For added complexity,
+    add an option for users to select the compounding interval (Monthly, Weekly, Daily, Continually).
+    """
+    assert 0.00 < rate < 1.00
+    assert loan > 0.0
+    # Ive got no idea how mortgage are calculated :P
+    payment = loan * (1 + rate)
+    n = int(input("How many months?"))
+    interval = str(input("What interval type you are interested in? Accepted: m, w, d, c"))
+    res = None
+    if interval == "m":
+        res = "monthly"
+        payment /= n
+    elif interval == "w":
+        res = "weekly"
+        payment /= (4 * n)
+    elif interval == "d":
+        res = "daily"
+        payment /= (30 * n)
+    elif interval == "c":
+        res = "continually"
+        c = float(input("Give the interval in hours"))
+        payment /= (30 * c * n)
+    print("Your {} payments are: {:.2f}".format(res, payment))
+
+
 if __name__ == '__main__':
     import unittest
     import test_main
@@ -126,3 +154,4 @@ if __name__ == '__main__':
     #unittest.TextTestRunner(verbosity=2).run(suite)
 
     # task_5()
+    # task_7(10000, 0.03)
