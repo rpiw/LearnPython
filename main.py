@@ -99,7 +99,7 @@ def task_5():
             continue
 
         if run == "stop":
-            break
+            raise SystemExit
 
         if is_prime(number):
             print(number)
@@ -107,9 +107,22 @@ def task_5():
         run = str(input("To stop program type 'stop'. To skip some number, type 'skip x', where x is an int."))
 
 
+def task_6(w, h):
+    u"""Find Cost of Tile to Cover W x H Floor - Calculate the total cost of tile it would take to cover
+        a floor plan of width and height, using a cost entered by the user."""
+    try:
+        w = float(w)
+        h = float(h)
+    except ValueError:
+        return
+    cost = float(input("Enter a cost."))
+    return cost * w * h
+
+
 if __name__ == '__main__':
     import unittest
     import test_main
     suite = unittest.TestLoader().loadTestsFromModule(test_main)
     #unittest.TextTestRunner(verbosity=2).run(suite)
-    task_5()
+
+    # task_5()

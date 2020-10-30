@@ -31,6 +31,8 @@ class TestNumbers(unittest.TestCase):
         self.assertEqual([2, 2], task_4(4.5))
         self.assertEqual([], task_4("chomik dżungarski"))
 
+    # Task 5
+
 
 def main():
     unittest.main()
