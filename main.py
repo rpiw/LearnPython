@@ -170,6 +170,48 @@ def collatz_conjecture(number: int):
     plt.show()
 
 
+def merge_sort(seq):
+    if len(seq) > 1:
+        mid = len(seq)//2
+        left = seq[:mid]
+        right = seq[mid:]
+
+        merge_sort(left)
+        merge_sort(right)
+
+        i, j, k = 0, 0, 0
+        while len(left) > i and len(right) > j:
+            if left[i] < right[j]:
+                seq[k] = left[i]
+                i += 1
+            else:
+                seq[k] = right[j]
+                j += 1
+            k += 1
+
+        while i < len(left):
+            seq[k] = left[i]
+            i += 1
+            k += 1
+
+        while j < len(right):
+            seq[k] = right[j]
+            j += 1
+            k += 1
+
+
+def bubble_sort(seq):
+    i = 0
+    swapped = True
+    while swapped:
+        swapped = False
+        for i in range(1, len(seq)):
+            if seq[i] < seq[i - 1]:
+                seq[i], seq[i - 1] = seq[i - 1], seq[i]
+                swapped = True
+            i += 1
+
+
 if __name__ == '__main__':
     import unittest
     import test_main
@@ -178,4 +220,9 @@ if __name__ == '__main__':
 
     # task_5()
     # task_7(10000, 0.03)
-    collatz_conjecture(126)
+    # collatz_conjecture(126)
+    seq = [1, 6, 2, 4, 9, 12, 5, 5, 5, -34]
+    # merge_sort(seq)
+    print(seq)
+    bubble_sort(seq)
+    print(seq)
