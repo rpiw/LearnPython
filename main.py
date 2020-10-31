@@ -147,6 +147,29 @@ def task_7(loan, rate):
     print("Your {} payments are: {:.2f}".format(res, payment))
 
 
+# Classic Algorithms
+import matplotlib.pyplot as plt
+
+
+def collatz_conjecture(number: int):
+    u"""Collatz Conjecture - Start with a number n > 1. Find the number of steps it takes to reach one using
+    the following process: If n is even, divide it by 2. If n is odd, multiply it by 3 and add 1."""
+    def collatz(n):
+        return n / 2 if n % 2 == 0 else 3 * n + 1
+
+    results = [number]
+    for i in range(1000):
+        n = collatz(results[-1])
+        results.append(n)
+        if n == 1:
+            break
+
+    print("Steps: {}".format(len(results)))
+    plt.figure()
+    plt.plot(results, "*-")
+    plt.show()
+
+
 if __name__ == '__main__':
     import unittest
     import test_main
@@ -155,3 +178,4 @@ if __name__ == '__main__':
 
     # task_5()
     # task_7(10000, 0.03)
+    collatz_conjecture(126)
