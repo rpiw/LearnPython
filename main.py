@@ -216,13 +216,4 @@ if __name__ == '__main__':
     import unittest
     import test_main
     suite = unittest.TestLoader().loadTestsFromModule(test_main)
-    #unittest.TextTestRunner(verbosity=2).run(suite)
-
-    # task_5()
-    # task_7(10000, 0.03)
-    # collatz_conjecture(126)
-    seq = [1, 6, 2, 4, 9, 12, 5, 5, 5, -34]
-    # merge_sort(seq)
-    print(seq)
-    bubble_sort(seq)
-    print(seq)
+    # unittest.TextTestRunner(verbosity=2).run(suite)
