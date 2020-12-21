@@ -44,3 +44,37 @@ class Inventory:
 
     def list_all(self):
         return ((x.name, x.id, x.price, x.quantity, round(x.price * x.quantity, 2)) for x in self._products)
+
+
+""" Task 2:
+Airline / Hotel Reservation System - Create a reservation system which books airline seats or hotel rooms. It charges 
+various rates for particular sections of the plane or hotel. Example, first class is going to cost more than coach. 
+Hotel rooms have penthouse suites which cost more. Keep track of when rooms will be available and can be scheduled.
+"""
+import datetime
+
+
+class Item:
+    u"""Represent a something that can be booked."""
+    _id = 0
+
+    def __init__(self, name: str, price=0.0):
+        self.name = name
+        self.price = price
+        self.id = Item._id
+        Item._id += 1
+
+    def __repr__(self):
+        return "BookableItem: {}, id: {}".format(self.name, self._id)
+
+
+class ReservationSystem:
+
+    def __init__(self):
+        self.items = set()
+
+    def reserve(self, item):
+        u"""Book an item."""
+
+    def available(self):
+        u"""Show all available items (not booked)."""
