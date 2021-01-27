@@ -1,89 +1,78 @@
 import pyglet
 from pyglet import shapes
-from pyglet.window import key, mouse
-from typing import Tuple, List, Union
+from pyglet.window import key
+
+from typing import List, Union
+
 import numpy as np
+
 from enum import Enum
+from abc import ABCMeta, abstractmethod
+from collections.abc import Sequence
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class Vector2Exception(Exception):
+    def __init__(self):
+        super(Vector2Exception, self).__init__()
+        logger.error(f"Can not initialize Vector2 with given arguments.")
+
+
+class Vector2:
+    u"""Class for 2-dimensional vectors in euclidean space."""
+    def __init__(self, x, y=None):
+        if y is None and isinstance(x, Sequence):
+            if len(x) == 2:
+                self.x = x[0]
+                self.y = x[1]
+        else:
+            try:
+                self.x = x
+                self.y = y
+            except Exception:
+                raise Vector2Exception
+
+    def __mul__(self, other):
+        return self.x * other.x + self.y * other.y
+
+    def __add__(self, other):
+        return Vector2(self.x + other.x, self.y + other.y)
+
+    def __sub__(self, other):
+        return Vector2(self.x - other.x, self.y - other.y)
+
+    def __eq__(self, other):
+        sub = self - other
+        if sub.x != 0 or sub.y != 0:
+            return False
+        return True
+
+    def __getitem__(self, _key):
+        if _key == 0:
+            return self.x
+        elif _key == 1:
+            return self.y
+        else:
+            raise IndexError
+
+    def __str__(self):
+        return f"Vector2 x={self.x}, y={self.y}"
+
+    def __repr__(self):
+        return f"{self.x, self.y}"
+
+    def __iter__(self):
+        return iter((self.x, self.y))
 
 
 class Direction:
-    top = [-1, 0]
-    down = [1, 0]
-    left = [0, -1]
-    right = [0, 1]
-
-
-class Grid:
-
-    def __init__(self, x_scale: int = 32, y_scale: int = 32, grid_size_x: int = 20, grid_size_y: int = 20,
-                 anchor=""):
-        u"""Create a virtual grid mapping x_scale, y_scale pixels to one field on a grid.
-            :grid_size_x, grid_size_y are integers.
-            :anchor, str, "middle" - (0, 0) is in a middle of a field."""
-        self.scale = x_scale, y_scale
-        self.grid_size = grid_size_x, grid_size_y
-        self.anchor = np.array((0.5, 0.5)) if anchor == "middle" else np.array((0, 0))
-
-    def world_to_grid(self, x: int, y: int) -> Tuple[int, int]:
-        u"""Return position on grid based on world coordinates."""
-        new_x = x // self.scale[0] % self.grid_size[0]
-        new_y = y // self.scale[1] % self.grid_size[1]
-
-        return new_x, new_y
-
-    def grid_to_world(self, x: int, y: int) -> Tuple[int, int]:
-        u"""Return position in world based on grid coordinates. Returning coordinates are in anchor."""
-        new_x = x * self.scale[0]
-        new_y = y * self.scale[1]
-
-        return new_x, new_y
-
-
-class Actor:
-
-    def __init__(self, player=True):
-        self.player = player
-
-    def __repr__(self):
-        return f"Class<Actor>: player: {self.player}"
-
-
-class Snake(Actor):
-    u"""Class representing snake itself. It does not provide 'game' related utilities, like
-    collision detection!"""
-
-    def __init__(self, position: Union[List[Tuple[int]], np.array], player=True):
-        u"""Position: list of tuples of int pairs indicating position of all fragments of body."""
-        super(Snake, self).__init__(player)
-        self.position = np.array(position, dtype=int)
-        self.length = len(self.position)
-
-    def move(self, new_position: List[int]):
-        u"""Move head to position new_position. Rest body follows previous elements."""
-        assert len(new_position) == 2
-        pos = np.array([(new_position[0], new_position[1])], dtype=int)
-        self.position = np.concatenate((pos, self.position[:-1]))
-
-    def move_incremental(self, direction: List[int]):
-        u"""Move the snake for one field only."""
-        assert len(direction) == 2  # please, use Direction class to avoid errors
-        head_current_position = self.position[0]
-        new_head_position = head_current_position + direction
-        self.move(new_head_position)
-
-    def grow(self, new_head_position: List[int]):
-        u"""Grow after moving rest of a body."""
-        assert len(new_head_position) == 2
-        last_part = self.position[-1]
-        self.move(new_head_position)
-        self.position = np.concatenate((np.array(last_part), self.position))
-        self.length += 1
-
-    def __str__(self):
-        return f"Snake of length {self.length} with head on position: {self.position[0]}"
-
-    def __repr__(self):
-        pass
+    top = Vector2(0, 1)
+    down = Vector2(0, -1)
+    left = Vector2(-1, 0)
+    right = Vector2(1, 0)
 
 
 class InputMap:
@@ -108,6 +97,130 @@ class InputMap:
         speed_down = key.NUM_SUBTRACT
 
 
+class Grid:
+
+    def __init__(self, x_scale: int = 32, y_scale: int = 32, grid_size_x: int = 20, grid_size_y: int = 20,
+                 anchor=""):
+        u"""Create a virtual grid mapping x_scale, y_scale pixels to one field on a grid.
+            :grid_size_x, grid_size_y are integers.
+            :anchor, str, "middle" - (0, 0) is in a middle of a field,
+            :wrap_borders, bool, if true, does not limit movement behind borders, but set to end -> beginning and
+            beginning -> end."""
+        self.scale = x_scale, y_scale
+        self.grid_size = grid_size_x, grid_size_y
+        self.anchor = np.array((0.5, 0.5)) if anchor == "middle" else np.array((0, 0))
+
+    def world_to_grid(self, position: Vector2) -> Vector2:
+        u"""Return position on grid based on world coordinates."""
+        new_x = position.x // self.scale[0] % self.grid_size[0]
+        new_y = position.y // self.scale[1] % self.grid_size[1]
+
+        return Vector2(new_x, new_y)
+
+    def grid_to_world(self, position: Vector2) -> Vector2:
+        u"""Return position in world based on grid coordinates. Returning coordinates are in anchor."""
+        new_x = position.x * self.scale[0]
+        new_y = position.y * self.scale[1]
+
+        return Vector2(new_x, new_y)
+
+
+class Actor(metaclass=ABCMeta):
+
+    @abstractmethod
+    def __init__(self, position: Union[List[Vector2], np.array], player=True, input_map=InputMap()):
+        self.input_map = input_map
+        self.player = player
+        self.position = np.array(position, dtype=int)
+
+    @abstractmethod
+    def __repr__(self):
+        return f"Class<Actor>: player: {self.player}"
+
+    @abstractmethod
+    def move(self, new_position: Vector2):
+        u"""Move player to a new position."""
+        pass
+
+    @abstractmethod
+    def move_incremental(self, direction: Vector2):
+        u"""Move player incrementally from current position."""
+        pass
+
+
+class Snake(Actor):
+    u"""Class representing snake itself. It does not provide 'game' related utilities, like
+    collision detection!"""
+
+    def __init__(self, position: List[Vector2], player=True):
+        u"""Position: list of tuples of int pairs indicating position of all fragments of body."""
+        super(Snake, self).__init__(player)
+        self.position = position
+        self.length = len(self.position)
+
+    def move(self, new_position: Vector2):
+        u"""Snake does not move free, only incrementally."""
+        raise NotImplementedError
+
+    def move_incremental(self, direction: Vector2):
+        u"""Move the snake for one field only."""
+        self.position = [direction + self.position[0]] + self.position[:-1]
+
+    def grow(self): # implement me!
+        pass
+
+    def __str__(self):
+        return f"Snake of length {self.length} with head on position: {self.position[0]}"
+
+    def __repr__(self):
+        super().__repr__()
+
+
+class AbstractController(metaclass=ABCMeta):
+    u"""
+        Abstract class for different types of player controls.
+    """
+    def __init__(self, *args, **kwargs):
+        self.args = args
+        self.kwargs = kwargs
+
+    @classmethod
+    @abstractmethod
+    def handle_control_on_player(cls, player: Actor, symbol: key):
+        pass
+
+
+class FourDirectionController(AbstractController):
+    u"""
+        Controller for movement in four direction: top, down, left, right.
+        Actor is moved only when player provides input.
+    """
+    @classmethod
+    def handle_control_on_player(cls, player: Actor, symbol: key):
+        u"""Move player in four directions."""
+        if symbol == player.input_map.move.top:
+            player.move_incremental(Direction.top)
+        elif symbol == player.input_map.move.down:
+            player.move_incremental(Direction.down)
+        elif symbol == player.input_map.move.left:
+            player.move_incremental(Direction.left)
+        elif symbol == player.input_map.move.right:
+            player.move_incremental(Direction.right)
+
+
+class SnakeController(AbstractController):
+    u"""
+        Snake-like controller. Player can only turn direction of movement to orthogonal of current direction.
+        Snake moves forward if player has not provided any input.
+    """
+    @classmethod
+    def handle_control_on_player(cls, player: Actor, symbol: key):
+        u"""
+            Move player to left or right in local space. Move forward if no actions was taken.
+            Player can provide four different inputs for directions, although not all of them can be handled.
+        """
+
+
 class Game:
 
     class Drawings(Enum):
@@ -115,6 +228,7 @@ class Game:
         fruit = 1
 
     background_image = "background_anime.jpg"
+    logger = logging.getLogger("Game")
 
     def __init__(self, w=640, h=480, speed=1, input_map=InputMap(),
                  snake: Snake = None, grid: Grid = Grid()):
@@ -138,27 +252,17 @@ class Game:
         def draw_snake():
             drawings[Game.Drawings.snake].clear()  # clear drawings
             for position in self.snake.position:
-                print(self.grid.grid_to_world(*position))
-                sh = shapes.Rectangle(*self.grid.grid_to_world(*position), *self.grid.scale,
+                print(*position)
+                logger.debug(f"Position: {self.grid.grid_to_world(position)}")
+                sh = shapes.Rectangle(*self.grid.grid_to_world(position), *self.grid.scale,
                                       color=(255, 255, 255), batch=batch)
                 drawings[Game.Drawings.snake].append(sh)
 
         @self.window.event
         def on_key_press(symbol, modifiers):
-            print("Check keys")
-            # begin of movement handling
-            # fix me: check if switching the direction is possible!
-            if symbol == self.input_map.move.top:
-                self.snake.move_incremental(Direction.top)
-            elif symbol == self.input_map.move.down:
-                self.snake.move_incremental(Direction.down)
-            elif symbol == self.input_map.move.left:
-                self.snake.move_incremental(Direction.left)
-            elif symbol == self.input_map.move.right:
-                self.snake.move_incremental(Direction.right)
-            # end of movement handling
+            FourDirectionController().handle_control_on_player(self.snake, symbol)  # movement
             # begin of user interface handling and common utilities (pause, change speed, etc)
-            elif symbol == self.input_map.game.restart:
+            if symbol == self.input_map.game.restart:
                 pass
             elif symbol == self.input_map.game.start:
                 pass
@@ -170,8 +274,8 @@ class Game:
         @self.window.event
         def on_draw():
             self.window.clear()
-            self.fps.draw()
             self.background_image.draw()
+            self.fps.draw()
             draw_snake()
             batch.draw()
 
@@ -179,6 +283,6 @@ class Game:
 
 
 if __name__ == '__main__':
-    p = [(3, 3,), (3, 4), (3, 5)]
+    p = [Vector2(3, 3)]
     game = Game(snake=Snake(position=p))
     game.main()
