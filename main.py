@@ -212,8 +212,30 @@ def bubble_sort(seq):
             i += 1
 
 
+class Text:
+    u"""Text related problems."""
+
+    @staticmethod
+    def task_1():
+        u"""Fizz Buzz - Write a program that prints the numbers from 1 to 100. But for multiples of three print
+        “Fizz” instead of the number and for the multiples of five print “Buzz”. For numbers which are multiples of
+        both three and five print “FizzBuzz”.
+        """
+        for i in range(1, 101):
+            if i % 3 == 0 and i % 5 != 0:
+                print("Fizz")
+            elif i % 3 != 0 and i % 5 == 0:
+                print("buzz")
+            elif i % (3 * 5) == 0:
+                print("FizzBuzz")
+            else:
+                print(i)
+
+    @staticmethod
+    def task_2():
+        u"""Reverse a String - Enter a string and the program will reverse it and print it out."""
+        return input("Please, provide a string\n")[::-1]
+
+
 if __name__ == '__main__':
-    import unittest
-    import test_main
-    suite = unittest.TestLoader().loadTestsFromModule(test_main)
-    # unittest.TextTestRunner(verbosity=2).run(suite)
+    print(Text.task_2())
