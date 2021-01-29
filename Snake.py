@@ -35,8 +35,13 @@ class Vector2:
             except Exception:
                 raise Vector2Exception
 
-    def __mul__(self, other):
+    def dot(self, other) -> float:
+        u"""Cartesian dot product."""
         return self.x * other.x + self.y * other.y
+
+    def __mul__(self, other):
+        u"""Element-wise multiplication, not a dot product!"""
+        return Vector2(self.x * other.x, self.y * other.y)
 
     def __add__(self, other):
         return Vector2(self.x + other.x, self.y + other.y)
@@ -49,6 +54,16 @@ class Vector2:
         if sub.x != 0 or sub.y != 0:
             return False
         return True
+
+    def __setitem__(self, _key, value):
+        if not isinstance(value, (int, float)):
+            raise TypeError
+        if _key == 0:
+            self.x = value
+        elif _key == 1:
+            self.y = value
+        else:
+            raise IndexError
 
     def __getitem__(self, _key):
         if _key == 0:
@@ -106,23 +121,20 @@ class Grid:
             :anchor, str, "middle" - (0, 0) is in a middle of a field,
             :wrap_borders, bool, if true, does not limit movement behind borders, but set to end -> beginning and
             beginning -> end."""
-        self.scale = x_scale, y_scale
-        self.grid_size = grid_size_x, grid_size_y
+        self.scale = Vector2(x_scale, y_scale)
+        self.size = Vector2(grid_size_x, grid_size_y)
         self.anchor = np.array((0.5, 0.5)) if anchor == "middle" else np.array((0, 0))
 
     def world_to_grid(self, position: Vector2) -> Vector2:
         u"""Return position on grid based on world coordinates."""
-        new_x = position.x // self.scale[0] % self.grid_size[0]
-        new_y = position.y // self.scale[1] % self.grid_size[1]
+        new_x = position.x // self.scale[0] % self.size.x
+        new_y = position.y // self.scale[1] % self.size.y
 
         return Vector2(new_x, new_y)
 
     def grid_to_world(self, position: Vector2) -> Vector2:
         u"""Return position in world based on grid coordinates. Returning coordinates are in anchor."""
-        new_x = position.x * self.scale[0]
-        new_y = position.y * self.scale[1]
-
-        return Vector2(new_x, new_y)
+        return position * self.scale
 
 
 class Actor(metaclass=ABCMeta):
@@ -232,16 +244,32 @@ class Game:
 
     def __init__(self, w=640, h=480, speed=1, input_map=InputMap(),
                  snake: Snake = None, grid: Grid = Grid()):
-        self.snake = snake
-        self.window = pyglet.window.Window(height=h, width=w)
+        # Game objects
+        self.snake = snake  # Snake should not known anything about grid
+        self.grid = grid  # Grid should not known anything about snake
         self.speed = speed
         self.input_map = input_map
-        self.grid = grid
+
+        # Software related objects
+        h, w = self.grid.scale * self.grid.size
+        self.window = pyglet.window.Window(height=h, width=w)
+
+        # Additional info
         self.fps = pyglet.window.FPSDisplay(window=self.window)
 
+        # I am not such a weeb, right? Also, Im not foot fetishist...
         with open(Game.background_image, 'rb') as image_bin:
             self.background_image = pyglet.image.load(filename=Game.background_image, file=image_bin)
         self.background_image = pyglet.sprite.Sprite(img=self.background_image)
+
+    def wrap_position_on_grid(self):
+        u"""Keep snake's position inside range(grid size)."""
+        for position in self.snake.position:
+            for i in (0, 1):
+                if position[i] >= self.grid.size[i]:
+                    position[i] = 0
+                elif position[i] < 0:
+                    position[i] = self.grid.size[i]
 
     def main(self):
 
@@ -252,15 +280,16 @@ class Game:
         def draw_snake():
             drawings[Game.Drawings.snake].clear()  # clear drawings
             for position in self.snake.position:
-                print(*position)
                 logger.debug(f"Position: {self.grid.grid_to_world(position)}")
                 sh = shapes.Rectangle(*self.grid.grid_to_world(position), *self.grid.scale,
-                                      color=(255, 255, 255), batch=batch)
+                                      color=(255, 0, 0), batch=batch)
                 drawings[Game.Drawings.snake].append(sh)
 
         @self.window.event
         def on_key_press(symbol, modifiers):
             FourDirectionController().handle_control_on_player(self.snake, symbol)  # movement
+            # Check if Snake's position is outside grid size! Snake and Grid have not idea about each other!
+            self.wrap_position_on_grid()
             # begin of user interface handling and common utilities (pause, change speed, etc)
             if symbol == self.input_map.game.restart:
                 pass
