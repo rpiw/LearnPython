@@ -318,10 +318,12 @@ class Game:
         # Additional info
         self.fps = pyglet.window.FPSDisplay(window=self.window)
 
-        # I am not such a weeb, right? Also, Im not foot fetishist...
-        with open(Game.background_image, 'rb') as image_bin:
-            self.background_image = pyglet.image.load(filename=Game.background_image, file=image_bin)
-        self.background_image = pyglet.sprite.Sprite(img=self.background_image)
+        try:
+            with open(Game.background_image, 'rb') as image_bin:
+                self.background_image = pyglet.image.load(filename=Game.background_image, file=image_bin)
+            self.background_image = pyglet.sprite.Sprite(img=self.background_image)
+        except FileNotFoundError:
+            self.background_image = None
 
     def wrap_position_on_grid(self):
         u"""Keep snake's position inside range(grid size)."""
@@ -331,6 +333,18 @@ class Game:
                     position[i] = 0
                 elif position[i] < 0:
                     position[i] = self.grid.size[i]
+
+    def check_collisions_with_body(self):
+        u"""Check if snake has collided with its body."""
+        p = self.snake.position
+        if len(p) == 1:
+            return False
+
+        for i in range(len(p)):
+            for j in range(i + 1, len(p)):
+                if p[i] == p[j]:
+                    return True
+        return False
 
     def spawn_fruit(self, n=1, positions=None):
         if positions is None:
@@ -369,6 +383,11 @@ class Game:
         u"""Update snake's position based on input and game rules."""
         self.snake.move_incremental(self._requested_movement)
         self.wrap_position_on_grid()
+
+        if self.check_collisions_with_body():
+            logger.info("The end. You lost.")
+            pyglet.app.exit()
+
         self.check_if_snake_eats_fruit()
         # Remove eaten fruits
         for fruit in self._fruits.copy():
@@ -376,6 +395,7 @@ class Game:
                 self._fruits.remove(fruit)
 
         self._occupied_positions = self.snake.position + [fruit.position for fruit in self._fruits]
+
         # check if position to grow is not occupied any longer, if so, grow the tail!
         for position in reversed(self._positions_to_grow):  # reversed iteration, because the earliest eaten is last
             # in list and this should be first to grow
@@ -419,7 +439,8 @@ class Game:
         @self.window.event
         def on_draw():
             self.window.clear()
-            self.background_image.draw()
+            if self.background_image is not None:
+                self.background_image.draw()
             self.fps.draw()
             draw_actors()
             batch.draw()
