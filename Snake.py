@@ -84,6 +84,7 @@ class Vector2:
 
 
 class Direction:
+    zero = Vector2(0, 0)
     top = Vector2(0, 1)
     down = Vector2(0, -1)
     left = Vector2(-1, 0)
@@ -198,7 +199,7 @@ class AbstractController(metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def handle_control_on_player(cls, player: Actor, symbol: key):
+    def handle_control_on_player(cls, player: Actor, symbol: key) -> Direction:
         pass
 
 
@@ -211,13 +212,17 @@ class FourDirectionController(AbstractController):
     def handle_control_on_player(cls, player: Actor, symbol: key):
         u"""Move player in four directions."""
         if symbol == player.input_map.move.top:
-            player.move_incremental(Direction.top)
+            requested_direction = Direction.top
         elif symbol == player.input_map.move.down:
-            player.move_incremental(Direction.down)
+            requested_direction = Direction.down
         elif symbol == player.input_map.move.left:
-            player.move_incremental(Direction.left)
+            requested_direction = Direction.left
         elif symbol == player.input_map.move.right:
-            player.move_incremental(Direction.right)
+            requested_direction = Direction.right
+        else:
+            requested_direction = Direction.zero
+
+        return requested_direction
 
 
 class SnakeController(AbstractController):
@@ -225,12 +230,28 @@ class SnakeController(AbstractController):
         Snake-like controller. Player can only turn direction of movement to orthogonal of current direction.
         Snake moves forward if player has not provided any input.
     """
+    direction = Direction.top
+
     @classmethod
     def handle_control_on_player(cls, player: Actor, symbol: key):
         u"""
             Move player to left or right in local space. Move forward if no actions was taken.
             Player can provide four different inputs for directions, although not all of them can be handled.
         """
+        requested_direction = SnakeController.direction
+        if symbol == player.input_map.move.top:
+            requested_direction = Direction.top
+        elif symbol == player.input_map.move.down:
+            requested_direction = Direction.down
+        elif symbol == player.input_map.move.left:
+            requested_direction = Direction.left
+        elif symbol == player.input_map.move.right:
+            requested_direction = Direction.right
+
+        if requested_direction.dot(SnakeController.direction) == 0:
+            SnakeController.direction = requested_direction
+
+        return SnakeController.direction
 
 
 class Game:
@@ -244,15 +265,19 @@ class Game:
 
     def __init__(self, w=640, h=480, speed=1, input_map=InputMap(),
                  snake: Snake = None, grid: Grid = Grid()):
-        # Game objects
+        # Game abstraction related objects
         self.snake = snake  # Snake should not known anything about grid
         self.grid = grid  # Grid should not known anything about snake
         self.speed = speed
+        self._fps = 60
+        self._requested_movement: Vector2 = Direction.zero
         self.input_map = input_map
 
         # Software related objects
         h, w = self.grid.scale * self.grid.size
         self.window = pyglet.window.Window(height=h, width=w)
+
+        self._snake_controller = SnakeController()
 
         # Additional info
         self.fps = pyglet.window.FPSDisplay(window=self.window)
@@ -271,6 +296,11 @@ class Game:
                 elif position[i] < 0:
                     position[i] = self.grid.size[i]
 
+    def update_position(self, dt):
+        u"""Update snake's position based on input and game rules."""
+        self.snake.move_incremental(self._requested_movement)
+        self.wrap_position_on_grid()
+
     def main(self):
 
         batch = pyglet.shapes.Batch()
@@ -287,9 +317,8 @@ class Game:
 
         @self.window.event
         def on_key_press(symbol, modifiers):
-            FourDirectionController().handle_control_on_player(self.snake, symbol)  # movement
+            self._requested_movement = self._snake_controller.handle_control_on_player(self.snake, symbol)
             # Check if Snake's position is outside grid size! Snake and Grid have not idea about each other!
-            self.wrap_position_on_grid()
             # begin of user interface handling and common utilities (pause, change speed, etc)
             if symbol == self.input_map.game.restart:
                 pass
@@ -308,6 +337,7 @@ class Game:
             draw_snake()
             batch.draw()
 
+        pyglet.clock.schedule_interval(self.update_position, 0.5)
         pyglet.app.run()
 
 
