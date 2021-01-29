@@ -9,6 +9,7 @@ import numpy as np
 from enum import Enum
 from abc import ABCMeta, abstractmethod
 from collections.abc import Sequence
+import random
 
 import logging
 
@@ -21,8 +22,15 @@ class Vector2Exception(Exception):
         logger.error(f"Can not initialize Vector2 with given arguments.")
 
 
+class AllPositionsAreOccupiedException(Exception):
+    def __init__(self, msg=""):
+        super(AllPositionsAreOccupiedException, self).__init__()
+        logger.error(f"All positions on grid a occupied!")
+
+
 class Vector2:
     u"""Class for 2-dimensional vectors in euclidean space."""
+
     def __init__(self, x, y=None):
         if y is None and isinstance(x, Sequence):
             if len(x) == 2:
@@ -72,6 +80,9 @@ class Vector2:
             return self.y
         else:
             raise IndexError
+
+    def __hash__(self):
+        return hash((self.x, self.y))
 
     def __str__(self):
         return f"Vector2 x={self.x}, y={self.y}"
@@ -139,25 +150,43 @@ class Grid:
 
 
 class Actor(metaclass=ABCMeta):
+    u"""ABC for all actors in a game."""
 
     @abstractmethod
-    def __init__(self, position: Union[List[Vector2], np.array], player=True, input_map=InputMap()):
+    def __init__(self, position: Union[List[Vector2], Vector2], player=True, input_map=InputMap()):
+        if not isinstance(position, (Vector2, List)):
+            raise TypeError
+
         self.input_map = input_map
         self.player = player
-        self.position = np.array(position, dtype=int)
+        self.position = position
 
-    @abstractmethod
     def __repr__(self):
         return f"Class<Actor>: player: {self.player}"
 
     @abstractmethod
     def move(self, new_position: Vector2):
         u"""Move player to a new position."""
-        pass
 
     @abstractmethod
     def move_incremental(self, direction: Vector2):
         u"""Move player incrementally from current position."""
+
+
+class Fruit(Actor):
+    u"""Represent fruit."""
+
+    def __init__(self, position, player=False, input_map=None):
+        super(Fruit, self).__init__(position, player=player, input_map=input_map)
+        self.valid = True  # if False, delete object! Set to false when snake eats fruit
+
+    def __repr__(self):
+        return super().__repr__()
+
+    def move_incremental(self, direction: Vector2):
+        pass
+
+    def move(self, new_position: Vector2):
         pass
 
 
@@ -167,9 +196,7 @@ class Snake(Actor):
 
     def __init__(self, position: List[Vector2], player=True):
         u"""Position: list of tuples of int pairs indicating position of all fragments of body."""
-        super(Snake, self).__init__(player)
-        self.position = position
-        self.length = len(self.position)
+        super(Snake, self).__init__(position, player)
 
     def move(self, new_position: Vector2):
         u"""Snake does not move free, only incrementally."""
@@ -179,20 +206,21 @@ class Snake(Actor):
         u"""Move the snake for one field only."""
         self.position = [direction + self.position[0]] + self.position[:-1]
 
-    def grow(self): # implement me!
+    def grow(self):  # implement me!
         pass
 
     def __str__(self):
-        return f"Snake of length {self.length} with head on position: {self.position[0]}"
+        return f"Snake of length {len(self.position)} with head on position: {self.position[0]}"
 
     def __repr__(self):
-        super().__repr__()
+        return super().__repr__()
 
 
 class AbstractController(metaclass=ABCMeta):
     u"""
         Abstract class for different types of player controls.
     """
+
     def __init__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
@@ -208,6 +236,7 @@ class FourDirectionController(AbstractController):
         Controller for movement in four direction: top, down, left, right.
         Actor is moved only when player provides input.
     """
+
     @classmethod
     def handle_control_on_player(cls, player: Actor, symbol: key):
         u"""Move player in four directions."""
@@ -255,10 +284,12 @@ class SnakeController(AbstractController):
 
 
 class Game:
-
     class Drawings(Enum):
         snake = 0
         fruit = 1
+
+    snake_color = (255, 0, 0)
+    fruit_color = (0, 255, 0)
 
     background_image = "background_anime.jpg"
     logger = logging.getLogger("Game")
@@ -270,12 +301,17 @@ class Game:
         self.grid = grid  # Grid should not known anything about snake
         self.speed = speed
         self._fps = 60
-        self._requested_movement: Vector2 = Direction.zero
-        self.input_map = input_map
+        self._fruits: List[Fruit] = []  # List of fruits
+        self._occupied_positions: List[Vector2] = []  # List of currently occupied positions by snake and fruits
+        self._positions_to_grow: List[Vector2] = []  # List of positions of eaten fruits. Snake grows after leave.
+        self._previous_snake_positions: List[Vector2] = []  # Used to check if snake left position with fruit
 
         # Software related objects
         h, w = self.grid.scale * self.grid.size
         self.window = pyglet.window.Window(height=h, width=w)
+
+        self._requested_movement: Vector2 = Direction.zero
+        self.input_map = input_map
 
         self._snake_controller = SnakeController()
 
@@ -296,29 +332,80 @@ class Game:
                 elif position[i] < 0:
                     position[i] = self.grid.size[i]
 
+    def spawn_fruit(self, n=1, positions=None):
+        if positions is None:
+
+            def random_position():
+                not_occupied = set([Vector2(x, y) for x in range(self.grid.size.x) for y in range(self.grid.size.y)]) \
+                               - set(self._occupied_positions)
+                if len(not_occupied) == 0:
+                    raise AllPositionsAreOccupiedException("Can not spawn a fruit object!")
+                return random.choice(list(not_occupied))
+
+            positions = [random_position() for _ in range(n)]
+
+        else:
+            assert len(positions) == n
+
+        for position in positions:
+            self._fruits.append(Fruit(position))
+
+    def check_if_snake_eats_fruit(self):
+        u"""Check if snake position is the same as position of any of fruits.
+        If true, call spawn_fruit and add position to self._positions_to_grow."""
+        for fruit in self._fruits:
+            if self.snake.position[0] == fruit.position:
+                self._positions_to_grow.append(fruit.position)
+                fruit.valid = False
+                self.spawn_fruit()
+                return  # it is not possible to eat more than 1 fruit at once, so we can leave
+
+    def grow_snake(self, position):
+        u"""Add one body part to the snake."""
+        self.snake.position.append(position)
+        self._positions_to_grow.remove(position)
+
     def update_position(self, dt):
         u"""Update snake's position based on input and game rules."""
         self.snake.move_incremental(self._requested_movement)
         self.wrap_position_on_grid()
+        self.check_if_snake_eats_fruit()
+        # Remove eaten fruits
+        for fruit in self._fruits.copy():
+            if not fruit.valid:
+                self._fruits.remove(fruit)
+
+        self._occupied_positions = self.snake.position + [fruit.position for fruit in self._fruits]
+        # check if position to grow is not occupied any longer, if so, grow the tail!
+        for position in reversed(self._positions_to_grow):  # reversed iteration, because the earliest eaten is last
+            # in list and this should be first to grow
+            if position not in self._occupied_positions:
+                self.grow_snake(position)
 
     def main(self):
 
         batch = pyglet.shapes.Batch()
         drawings = {Game.Drawings.snake: [],
                     Game.Drawings.fruit: []}  # cache drawings from local variables
+        self.spawn_fruit(1)
 
-        def draw_snake():
+        def draw_actors():
             drawings[Game.Drawings.snake].clear()  # clear drawings
             for position in self.snake.position:
-                logger.debug(f"Position: {self.grid.grid_to_world(position)}")
                 sh = shapes.Rectangle(*self.grid.grid_to_world(position), *self.grid.scale,
-                                      color=(255, 0, 0), batch=batch)
+                                      color=Game.snake_color, batch=batch)
                 drawings[Game.Drawings.snake].append(sh)
+
+            drawings[Game.Drawings.fruit].clear()
+            for fruit in self._fruits:
+                sh = shapes.Rectangle(*self.grid.grid_to_world(fruit.position), *self.grid.scale,
+                                      color=Game.fruit_color, batch=batch)
+                drawings[Game.Drawings.fruit].append(sh)
 
         @self.window.event
         def on_key_press(symbol, modifiers):
             self._requested_movement = self._snake_controller.handle_control_on_player(self.snake, symbol)
-            # Check if Snake's position is outside grid size! Snake and Grid have not idea about each other!
+
             # begin of user interface handling and common utilities (pause, change speed, etc)
             if symbol == self.input_map.game.restart:
                 pass
@@ -334,7 +421,7 @@ class Game:
             self.window.clear()
             self.background_image.draw()
             self.fps.draw()
-            draw_snake()
+            draw_actors()
             batch.draw()
 
         pyglet.clock.schedule_interval(self.update_position, 0.5)
