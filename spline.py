@@ -13,6 +13,11 @@ from Vector import Vector2
 
 logger = logging.getLogger(__name__)
 
+from selectable import SelectableList
+
+
+_SELECTABLE_MODS = SelectableList()  # store here all selectable objects
+
 
 class InputMap:
     u"""Input map."""
@@ -31,6 +36,7 @@ class InputMap:
         u"""Select spline or select point in spline."""
         next_ = key.Q
         previous = key.E
+        switch_selectable = key.TAB  # switch between different types of selections
 
     class GameControl:
         restart = key.R  # clean and start again
@@ -51,10 +57,10 @@ class Spline:
     u"""Class for mathematics behind splines."""
 
     def __init__(self, points=List[Vector2]):
-        self.points = points
+        self.points = SelectableList(points)
         if len(self.points) < 4:
             raise SplineException
-        self._selected_point = 0
+        self._selected_point = self.points.value
 
     def __repr__(self):
         return f"Spline: length {len(self.points)},: from: {self.points[0] if self.points else None}"
@@ -87,32 +93,32 @@ class Spline:
 
         return Vector2(x, y)
 
-    def next_(self):
-        self._selected_point += 1
-        if self._selected_point == len(self.points):
-            self._selected_point = 0
-        return self.points[self._selected_point]
-
-    def previous(self):
-        self._selected_point -= 1
-        if self._selected_point < 0:
-            self._selected_point = len(self.points) - 1
-        return self.points[self._selected_point]
-
-    @property
-    def selected(self):
-        return self.points[self._selected_point]
-
-    @selected.setter
-    def selected(self, value, type_=Vector2, index: int=0):
-        super().selected = value, type_, index
-        self._selected_point = value
+    # def next_(self):
+    #     self._selected_point += 1
+    #     if self._selected_point == len(self.points):
+    #         self._selected_point = 0
+    #     return self.points[self._selected_point]
+    #
+    # def previous(self):
+    #     self._selected_point -= 1
+    #     if self._selected_point < 0:
+    #         self._selected_point = len(self.points) - 1
+    #     return self.points[self._selected_point]
+    #
+    # @property
+    # def selected(self):
+    #     return self.points[self._selected_point]
+    #
+    # @selected.setter
+    # def selected(self, value, type_=Vector2, index: int=0):
+    #     super().selected = value, type_, index
+    #     self._selected_point = value
 
 
 class SplineWindowModes(Enum):
     u"""Enumerate possible modes for SplineWindow class."""
-    idle = 0  # Ignore user input until switch to other mode
-    set_points = 1  # Pressing mouse provide selecting points on a screen
+    set_points = 0  # Pressing mouse provide selecting points on a screen
+    idle = 1  # Ignore user input until switch to other mode
     select_point = 2  # Select one of existing points
 
 
@@ -126,9 +132,12 @@ class SplineWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super(SplineWindow, self).__init__(**kwargs)
         self.mode: SplineWindowModes = next(SplineWindow.modes)
-        self.mode = next(SplineWindow.modes)  # begin with set_points mode
-        self.splines: List[Spline] = []
-        self.selected_spline = 0
+        print(self.mode)
+        self.splines: SelectableList[Spline] = SelectableList()
+        self.selected_spline = self.splines.selected_index
+
+        # going to _SELECTABLES_MODS
+        _SELECTABLE_MODS.append(self.splines)
 
         self._tmp = {"points": []}  # dict for handling any temporary data
         self._iterate_splines = iter(self.splines)
@@ -138,6 +147,9 @@ class SplineWindow(pyglet.window.Window):
 
         self.batch = pyglet.shapes.Batch()
         self._drawings = []
+
+        self.input_map = InputMap()
+        self._SELECTED_ITEM = _SELECTABLE_MODS.next_item()
 
         if "test" in args:
             self._test_sample = [Vector2(x, y) for (x, y) in
@@ -167,7 +179,10 @@ class SplineWindow(pyglet.window.Window):
         # noinspection PyTypeChecker
         spline = Spline(list_of_points.copy())
         self.splines.append(spline)
+        _SELECTABLE_MODS.append(spline.points)
         self._tmp["points"].clear()
+
+        print(_SELECTABLE_MODS)
 
     def on_mouse_press(self, x, y, button, modifiers):
         if self.mode is SplineWindowModes.idle:
@@ -182,21 +197,37 @@ class SplineWindow(pyglet.window.Window):
             logger.debug("on_mouse_press: self.mode is SplineWindowModes.select_point -- NOT IMPLEMENTED.")
 
     def on_key_press(self, symbol, modifiers):
+        # WINDOW
         if symbol == key.SPACE:
             self.mode = next(SplineWindow.modes)
             print(f"Current mode is: {self.mode}")
         elif symbol == key.ESCAPE:
             logger.info("Bye bye!")
             sys.exit(pyglet.app.exit())
+
+        # EXPORT AND LOAD
         elif symbol == key.X:
             self.export_spline(self.selected_spline)
         elif symbol == key.Z:
             self.load_saved_spline(SplineWindow.default_file)
+
+        # Drawings
         elif symbol == key.ENTER:
             self.draw_spline()
         elif symbol == key.ENTER and modifiers == key.MOD_SHIFT:
             logger.debug("Pressed: ENTER")
             self.draw_splines()
+
+        # SELECTION
+        elif symbol == self.input_map.Selection.switch_selectable:
+            self._SELECTED_ITEM = _SELECTABLE_MODS.next_item()
+            print(self._SELECTED_ITEM)
+        elif symbol == self.input_map.Selection.next_:
+            current = self._SELECTED_ITEM.next_item()
+            print(current)
+        elif symbol == self.input_map.Selection.previous:
+            current = self._SELECTED_ITEM.previous_item()
+            print(current)
 
     def export_spline(self, index=0):
         u"""Export spline to file."""
@@ -214,16 +245,6 @@ class SplineWindow(pyglet.window.Window):
             logger.exception(f"Could not find following file: {file}")
 
         logger.info("Successfully loaded pickled spline.")
-
-    def selected_point_next(self):
-        # self.selected_points =
-        pass
-
-    def next_(self):
-        pass
-
-    def previous(self):
-        pass
 
 
 def main():

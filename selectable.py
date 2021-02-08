@@ -16,7 +16,7 @@ class SelectableList(list):  # Linear Selectable container
 
         self._chain = chain
 
-        if super():
+        if super().__len__() > 0:
             self.selected_index = 0
 
     def restart_iterator(self):
@@ -24,6 +24,8 @@ class SelectableList(list):  # Linear Selectable container
 
     @property
     def selected_index(self):
+        if self._index is None and super().__len__() > 0:
+            self._index = super().__len__() - 1
         return self._index
 
     @selected_index.setter
@@ -57,5 +59,17 @@ class SelectableList(list):  # Linear Selectable container
             else:
                 raise StopIteration
 
-        self.selected_index = (self._index + 1) % super().__len__()
+        self.selected_index = (self.selected_index + 1) % super().__len__()
         print(f"Selected: {self.selected_index}")
+
+    def next_item(self):
+        if self.selected_index is None:
+            return
+        self.selected_index = (self.selected_index + 1) % super().__len__()
+        return super().__getitem__(self.selected_index)
+
+    def previous_item(self):
+        if self.selected_index is None:
+            return
+        self.selected_index = (self.selected_index - 1) % super().__len__()
+        return super().__getitem__(self.selected_index)
