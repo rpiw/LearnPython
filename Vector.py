@@ -1,4 +1,4 @@
-from collections import Sequence
+from collections.abc import Sequence
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,6 +12,11 @@ class Vector2Exception(Exception):
 
 class Vector2:
     u"""Class for 2-dimensional vectors in euclidean space."""
+
+    # _top = (0, 1)
+    # down = Vector2(0, -1)
+    # left = Vector2(-1, 0)
+    # right = Vector2(1, 0)
 
     def __init__(self, x, y=None):
         if y is None and isinstance(x, Sequence):
@@ -74,3 +79,7 @@ class Vector2:
 
     def __iter__(self):
         return iter((self.x, self.y))
+
+
+if __name__ == '__main__':
+    pass
