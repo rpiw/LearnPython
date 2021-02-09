@@ -1,5 +1,5 @@
 import itertools
-import logging
+import logging, datetime
 import pickle
 import sys
 from enum import Enum
@@ -10,13 +10,22 @@ import pyglet
 from pyglet.window import mouse, key
 
 from Vector import Vector2
-
-logger = logging.getLogger(__name__)
-
 from selectable import SelectableList
 
+logger = logging.getLogger(__name__)
+date = datetime.datetime.now().strftime("%y.%m.%d-%H:%M")
+logging.basicConfig(filename=f"{date}.log", level=logging.DEBUG)
 
-_SELECTABLE_MODS = SelectableList()  # store here all selectable objects
+sh = logging.StreamHandler()
+sh.setLevel(logging.DEBUG)
+stream_formatter = logging.Formatter("%(levelname)s: %(message)s")
+sh.setFormatter(stream_formatter)
+logger.addHandler(sh)
+
+
+class Global:
+    u"""We don't like global variables, right? store theme here"""
+    SELECTABLE_MODS = SelectableList()  # store here all selectable objects
 
 
 class InputMap:
@@ -93,27 +102,6 @@ class Spline:
 
         return Vector2(x, y)
 
-    # def next_(self):
-    #     self._selected_point += 1
-    #     if self._selected_point == len(self.points):
-    #         self._selected_point = 0
-    #     return self.points[self._selected_point]
-    #
-    # def previous(self):
-    #     self._selected_point -= 1
-    #     if self._selected_point < 0:
-    #         self._selected_point = len(self.points) - 1
-    #     return self.points[self._selected_point]
-    #
-    # @property
-    # def selected(self):
-    #     return self.points[self._selected_point]
-    #
-    # @selected.setter
-    # def selected(self, value, type_=Vector2, index: int=0):
-    #     super().selected = value, type_, index
-    #     self._selected_point = value
-
 
 class SplineWindowModes(Enum):
     u"""Enumerate possible modes for SplineWindow class."""
@@ -132,12 +120,12 @@ class SplineWindow(pyglet.window.Window):
     def __init__(self, *args, **kwargs):
         super(SplineWindow, self).__init__(**kwargs)
         self.mode: SplineWindowModes = next(SplineWindow.modes)
-        print(self.mode)
+        logger.debug(self.mode)
         self.splines: SelectableList[Spline] = SelectableList()
         self.selected_spline = self.splines.selected_index
 
         # going to _SELECTABLES_MODS
-        _SELECTABLE_MODS.append(self.splines)
+        Global.SELECTABLE_MODS.append(self.splines)
 
         self._tmp = {"points": []}  # dict for handling any temporary data
         self._iterate_splines = iter(self.splines)
@@ -149,7 +137,7 @@ class SplineWindow(pyglet.window.Window):
         self._drawings = []
 
         self.input_map = InputMap()
-        self._SELECTED_ITEM = _SELECTABLE_MODS.next_item()
+        self._SELECTED_ITEM = Global.SELECTABLE_MODS.next_item()
 
         if "test" in args:
             self._test_sample = [Vector2(x, y) for (x, y) in
@@ -179,10 +167,10 @@ class SplineWindow(pyglet.window.Window):
         # noinspection PyTypeChecker
         spline = Spline(list_of_points.copy())
         self.splines.append(spline)
-        _SELECTABLE_MODS.append(spline.points)
+        Global.SELECTABLE_MODS.append(spline.points)
         self._tmp["points"].clear()
 
-        print(_SELECTABLE_MODS)
+        logger.debug(Global.SELECTABLE_MODS)
 
     def on_mouse_press(self, x, y, button, modifiers):
         if self.mode is SplineWindowModes.idle:
@@ -200,7 +188,7 @@ class SplineWindow(pyglet.window.Window):
         # WINDOW
         if symbol == key.SPACE:
             self.mode = next(SplineWindow.modes)
-            print(f"Current mode is: {self.mode}")
+            logger.debug(f"Current mode is: {self.mode}")
         elif symbol == key.ESCAPE:
             logger.info("Bye bye!")
             sys.exit(pyglet.app.exit())
@@ -220,14 +208,14 @@ class SplineWindow(pyglet.window.Window):
 
         # SELECTION
         elif symbol == self.input_map.Selection.switch_selectable:
-            self._SELECTED_ITEM = _SELECTABLE_MODS.next_item()
-            print(self._SELECTED_ITEM)
+            self._SELECTED_ITEM = Global.SELECTABLE_MODS.next_item()
+            logger.debug(self._SELECTED_ITEM)
         elif symbol == self.input_map.Selection.next_:
             current = self._SELECTED_ITEM.next_item()
-            print(current)
+            logger.debug(current)
         elif symbol == self.input_map.Selection.previous:
             current = self._SELECTED_ITEM.previous_item()
-            print(current)
+            logger.debug(current)
 
     def export_spline(self, index=0):
         u"""Export spline to file."""
