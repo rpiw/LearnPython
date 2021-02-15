@@ -81,5 +81,13 @@ class Vector2:
         return iter((self.x, self.y))
 
 
+class Direction:
+    zero = Vector2(0, 0)
+    top = Vector2(0, 1)
+    down = Vector2(0, -1)
+    left = Vector2(-1, 0)
+    right = Vector2(1, 0)
+
+
 if __name__ == '__main__':
     pass
